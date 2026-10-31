@@ -309,14 +309,14 @@
               burst(ix, it.y, ['#6dff6d', '#2ecc40', '#c6ff00', '#fff35c'], 18);
               popups.push({ x: ix, y: it.y, t: 'Igitt! 🤢', life: 1, c: '#8aff8a' });
               if (navigator.vibrate) navigator.vibrate(120);
-              if (lives <= 0) { lose(); }
+              if (lives <= 0) { lose(); break; }
             }
           } else {
             score++; updateHud(); sfxCatch();
             player.squish = 1;
             burst(ix, it.y, ['#ffd23f', '#ff8c1a', '#ff6bd6', '#fff'], 12);
             popups.push({ x: ix, y: it.y, t: '+1', life: 1, c: '#ffd23f' });
-            if (score >= GOAL) { win(); }
+            if (score >= GOAL) { win(); break; }
           }
           continue;
         }
