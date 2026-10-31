@@ -351,6 +351,7 @@
     ctx.translate(x, y); ctx.rotate(rot);
     ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#000'; // opaque fill, otherwise colour emoji inherit a transparent fillStyle and vanish (iOS)
     ctx.fillText(e, 0, 0);
     ctx.restore();
   }
@@ -589,7 +590,7 @@
       if (it.bad) {
         // greenish warning glow
         const gg = ctx.createRadialGradient(ix, it.y, it.size * 0.3, ix, it.y, it.size * 0.75);
-        gg.addColorStop(0, 'rgba(90,255,90,.35)'); gg.addColorStop(1, 'rgba(90,255,90,0)');
+        gg.addColorStop(0, 'rgba(90,255,90,.25)'); gg.addColorStop(1, 'rgba(90,255,90,0)');
         ctx.fillStyle = gg;
         ctx.beginPath(); ctx.arc(ix, it.y, it.size * 0.75, 0, Math.PI * 2); ctx.fill();
       }
