@@ -68,6 +68,22 @@
     touch-action: manipulation;
   }
   .btn:active { transform: translateY(6px); box-shadow: 0 2px 0 #a34700; }
+  .levels { display: flex; gap: clamp(6px, 2vw, 16px); flex-wrap: nowrap; justify-content: center; }
+  .lvl {
+    font-family: inherit; font-weight: bold; cursor: pointer;
+    font-size: clamp(15px, min(4.2vw, 3.4vh), 26px);
+    color: #fff; background: rgba(40,0,70,.8);
+    border: 3px solid #7a4fa8; border-radius: 18px;
+    padding: 8px clamp(8px, 2.6vw, 22px); line-height: 1.15; white-space: nowrap;
+    touch-action: manipulation; transition: transform .15s;
+  }
+  .lvl small { display: block; font-size: .6em; font-weight: normal; color: #c9a7ff; }
+  .lvl.active { border-color: #ffd23f; background: linear-gradient(#6a2a9a, #3d0b66); transform: scale(1.08);
+                box-shadow: 0 0 20px rgba(255,210,63,.7); }
+  .lvl.active small { color: #ffe9a8; }
+  .levelLabel { font-size: clamp(16px, min(3.4vw, 3vh), 22px); color: #ffd23f; }
+  .btn.small { font-size: clamp(18px, min(4vw, 4vh), 26px); padding: 10px 26px; animation: none;
+               background: linear-gradient(#c9a7ff, #8a5cc7); box-shadow: 0 6px 0 #4b2380; }
 
   #winScreen { background: radial-gradient(ellipse at center, rgba(120,20,140,.6) 0%, rgba(10,0,20,.8) 80%); }
   .cake { font-size: clamp(80px, min(26vw, 24vh), 220px); animation: bounce 1s ease-in-out infinite; filter: drop-shadow(0 0 30px #ffd23f); }
@@ -105,13 +121,20 @@
     Steuern: ⬅️ ➡️ Pfeiltasten oder mit dem Finger wischen / tippen.<br>
     <b>Sammle 20 Süßigkeiten!</b>
   </div>
+  <div class="levels" role="radiogroup" aria-label="Schwierigkeit">
+    <button class="lvl" data-level="easy" role="radio">🙂 Leicht<small>gemütlich</small></button>
+    <button class="lvl" data-level="medium" role="radio">😃 Mittel<small>genau richtig</small></button>
+    <button class="lvl" data-level="hard" role="radio">😈 Schwer<small>superschnell!</small></button>
+  </div>
   <button id="startBtn" class="btn">▶ Spiel starten</button>
 </div>
 
 <div id="winScreen" class="screen hidden">
   <div class="cake">🎂</div>
   <div class="wintext">Alles Gute zum 7. Geburtstag, Keno!<br>Du hast das Halloween-Fest gerettet!</div>
+  <div class="levelLabel"></div>
   <button class="btn restart">🔁 Nochmal spielen</button>
+  <button class="btn small menu">⚙️ Andere Schwierigkeit</button>
 </div>
 
 <div id="loseScreen" class="screen hidden">
@@ -119,7 +142,9 @@
   <h1>Oh nein!</h1>
   <div class="lose">Die Schleimmonster waren zu viele …<br>Aber du schaffst das, Keno! Versuch es nochmal! 💪</div>
   <div class="lose" id="loseScore"></div>
+  <div class="levelLabel"></div>
   <button class="btn restart">🔁 Nochmal versuchen</button>
+  <button class="btn small menu">⚙️ Andere Schwierigkeit</button>
 </div>
 
 <script>
@@ -134,6 +159,17 @@
   const loseScreen = document.getElementById('loseScreen');
 
   const GOAL = 20, MAX_LIVES = 3;
+  // speed: fall speed factor, bad: obstacle chance at start→end, spawn: seconds between drops,
+  // ramp: how much faster it gets towards 20 points, catch: catch-radius factor
+  const LEVELS = {
+    easy:   { name: '🙂 Leicht', speed: 0.72, bad: [0.14, 0.22], spawn: [0.95, 1.35], ramp: 0.45, catch: 1.18 },
+    medium: { name: '😃 Mittel', speed: 1.0,  bad: [0.22, 0.35], spawn: [0.65, 1.05], ramp: 0.7,  catch: 1.0 },
+    hard:   { name: '😈 Schwer', speed: 1.35, bad: [0.32, 0.46], spawn: [0.45, 0.75], ramp: 0.9,  catch: 0.92 }
+  };
+  let levelKey = 'medium';
+  try { levelKey = localStorage.getItem('kenoLevel') || 'medium'; } catch (e) {}
+  if (!LEVELS[levelKey]) levelKey = 'medium';
+  let L = LEVELS[levelKey];
   const CANDIES = ['🍬', '🍭', '🍫', '🍬', '🍭'];
   const BADDIES = ['🦠', '🍋'];
 
@@ -198,6 +234,22 @@
   }
 
   // ---------- Game flow ----------
+  function selectLevel(key) {
+    if (!LEVELS[key]) return;
+    levelKey = key; L = LEVELS[key];
+    try { localStorage.setItem('kenoLevel', key); } catch (e) {}
+    document.querySelectorAll('.lvl').forEach(b => {
+      const on = b.dataset.level === key;
+      b.classList.toggle('active', on); b.setAttribute('aria-checked', on);
+    });
+    document.querySelectorAll('.levelLabel').forEach(el => el.textContent = 'Schwierigkeit: ' + L.name);
+  }
+  function showMenu() {
+    state = 'start'; items = []; confetti = []; particles = []; popups = [];
+    winScreen.classList.add('hidden'); loseScreen.classList.add('hidden');
+    hud.classList.add('hidden');
+    startScreen.classList.remove('hidden');
+  }
   function startGame() {
     initAudio();
     score = 0; lives = MAX_LIVES; items = []; particles = []; confetti = []; popups = [];
@@ -230,7 +282,7 @@
   // ---------- Spawning ----------
   function spawn() {
     const difficulty = Math.min(1, score / GOAL);
-    const badChance = 0.22 + difficulty * 0.13;
+    const badChance = L.bad[0] + difficulty * (L.bad[1] - L.bad[0]);
     const bad = Math.random() < badChance;
     const size = player.size * (bad ? 0.62 : 0.6);
     items.push({
@@ -238,7 +290,7 @@
       bad, size,
       x: rand(size / 2 + 6, W - size / 2 - 6),
       y: -size,
-      vy: (H / 4.2) * (1 + difficulty * 0.7) * rand(0.85, 1.15),
+      vy: (H / 4.2) * L.speed * (1 + difficulty * L.ramp) * rand(0.85, 1.15),
       rot: rand(-0.5, 0.5), vr: rand(-2, 2),
       wob: Math.random() * 6
     });
@@ -288,11 +340,11 @@
       if (spawnTimer <= 0) {
         spawn();
         const difficulty = Math.min(1, score / GOAL);
-        spawnTimer = rand(0.65, 1.05) * (1 - difficulty * 0.35);
+        spawnTimer = rand(L.spawn[0], L.spawn[1]) * (1 - difficulty * 0.35);
       }
 
       // items
-      const pr = player.size * 0.42;
+      const pr = player.size * 0.42 * L.catch;
       for (let i = items.length - 1; i >= 0; i--) {
         const it = items[i];
         it.y += it.vy * dt;
@@ -637,6 +689,7 @@
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { keys.left = true; e.preventDefault(); }
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { keys.right = true; e.preventDefault(); }
     if ((e.key === 'Enter' || e.key === ' ') && state !== 'play') { e.preventDefault(); startGame(); }
+    if (state === 'start' && LEVELS[{ '1': 'easy', '2': 'medium', '3': 'hard' }[e.key]]) selectLevel({ '1': 'easy', '2': 'medium', '3': 'hard' }[e.key]);
   });
   window.addEventListener('keyup', e => {
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
@@ -653,6 +706,9 @@
 
   document.getElementById('startBtn').addEventListener('click', startGame);
   document.querySelectorAll('.restart').forEach(b => b.addEventListener('click', startGame));
+  document.querySelectorAll('.menu').forEach(b => b.addEventListener('click', showMenu));
+  document.querySelectorAll('.lvl').forEach(b => b.addEventListener('click', () => { initAudio(); selectLevel(b.dataset.level); tone(520, 0.08, 'triangle', 0.12, 780); }));
+  selectLevel(levelKey);
   window.addEventListener('resize', resize);
 
   resize();
