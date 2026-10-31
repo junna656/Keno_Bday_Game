@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kenos Halloween-Bonbonjagd 🎃</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #12001f;
+    font-family: "Comic Sans MS", "Chalkboard SE", "Trebuchet MS", sans-serif;
+    color: #fff;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { position: fixed; inset: 0; display: block; width: 100%; height: 100%; }
+
+  #hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 18px; pointer-events: none; z-index: 5;
+    font-size: clamp(20px, 4.5vw, 34px); font-weight: bold;
+    text-shadow: 0 3px 0 #000, 0 0 12px rgba(255,140,0,.8);
+  }
+  .pill {
+    background: rgba(40, 0, 70, .75);
+    border: 3px solid #ff8c1a;
+    border-radius: 999px;
+    padding: 6px 18px;
+    box-shadow: 0 0 18px rgba(255,140,26,.5);
+  }
+  #score span { color: #ffd23f; }
+  #hud.hidden { display: none; }
+
+  .screen {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 16px; gap: min(18px, 2.2vh);
+    overflow-y: auto;
+    background: radial-gradient(ellipse at center, rgba(60,0,100,.55) 0%, rgba(10,0,20,.85) 75%);
+  }
+  .screen.hidden { display: none; }
+  h1 {
+    font-size: clamp(28px, min(8vw, 7.5vh), 72px);
+    color: #ff8c1a;
+    text-shadow: 0 4px 0 #6a1b00, 0 0 25px rgba(255,140,26,.9);
+    line-height: 1.1;
+  }
+  h1 small { display: block; font-size: .5em; color: #c9a7ff; text-shadow: 0 3px 0 #2a0045; margin-top: 8px; }
+  .hero { font-size: clamp(56px, min(18vw, 15vh), 150px); animation: float 2.2s ease-in-out infinite; }
+  .info {
+    font-size: clamp(14px, min(3.4vw, 3vh), 24px); line-height: 1.45;
+    background: rgba(30,0,55,.7); border: 2px dashed #ff8c1a; border-radius: 20px;
+    padding: 14px 22px; max-width: 620px;
+  }
+  .btn {
+    font-family: inherit; font-weight: bold;
+    font-size: clamp(24px, min(6vw, 6vh), 44px);
+    color: #2a0045;
+    background: linear-gradient(#ffb347, #ff7b00);
+    border: 5px solid #fff3d6; border-radius: 30px;
+    padding: 16px 44px; cursor: pointer;
+    box-shadow: 0 8px 0 #a34700, 0 0 35px rgba(255,140,26,.85);
+    animation: pulse 1.4s ease-in-out infinite;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: translateY(6px); box-shadow: 0 2px 0 #a34700; }
+
+  #winScreen { background: radial-gradient(ellipse at center, rgba(120,20,140,.6) 0%, rgba(10,0,20,.8) 80%); }
+  .cake { font-size: clamp(80px, min(26vw, 24vh), 220px); animation: bounce 1s ease-in-out infinite; filter: drop-shadow(0 0 30px #ffd23f); }
+  .wintext {
+    font-size: clamp(24px, min(6vw, 6.5vh), 54px); font-weight: bold; line-height: 1.25;
+    background: linear-gradient(90deg, #ff8c1a, #ffd23f, #ff6bd6, #8affc1, #ff8c1a);
+    background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: rainbow 3s linear infinite;
+    filter: drop-shadow(0 3px 0 #2a0045);
+    max-width: 900px;
+  }
+  .lose { font-size: clamp(22px, 5vw, 36px); color: #c9a7ff; }
+
+  @keyframes float { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-18px) rotate(4deg); } }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+  @keyframes bounce { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-20px) scale(1.06); } }
+  @keyframes rainbow { from { background-position: 0% 0; } to { background-position: 300% 0; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="score" class="pill">🍬 <span id="scoreVal">0</span> / 20</div>
+  <div id="lives" class="pill">❤️❤️❤️</div>
+</div>
+
+<div id="startScreen" class="screen">
+  <div class="hero">🎃</div>
+  <h1>Kenos Halloween-Bonbonjagd<small>Ein Geburtstagsspiel für Keno 🎉</small></h1>
+  <div class="info">
+    Fang die leckeren Süßigkeiten 🍬 🍭 🍫<br>
+    Aber pass auf: Schleimmonster 🦠 und saure Zitronen 🍋 kosten ein Leben!<br>
+    Steuern: ⬅️ ➡️ Pfeiltasten oder mit dem Finger wischen / tippen.<br>
+    <b>Sammle 20 Süßigkeiten!</b>
+  </div>
+  <button id="startBtn" class="btn">▶ Spiel starten</button>
+</div>
+
+<div id="winScreen" class="screen hidden">
+  <div class="cake">🎂</div>
+  <div class="wintext">Alles Gute zum 7. Geburtstag, Keno!<br>Du hast das Halloween-Fest gerettet!</div>
+  <button class="btn restart">🔁 Nochmal spielen</button>
+</div>
+
+<div id="loseScreen" class="screen hidden">
+  <div class="hero">👻</div>
+  <h1>Oh nein!</h1>
+  <div class="lose">Die Schleimmonster waren zu viele …<br>Aber du schaffst das, Keno! Versuch es nochmal! 💪</div>
+  <div class="lose" id="loseScore"></div>
+  <button class="btn restart">🔁 Nochmal versuchen</button>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const hud = document.getElementById('hud');
+  const scoreVal = document.getElementById('scoreVal');
+  const livesEl = document.getElementById('lives');
+  const startScreen = document.getElementById('startScreen');
+  const winScreen = document.getElementById('winScreen');
+  const loseScreen = document.getElementById('loseScreen');
+
+  const GOAL = 20, MAX_LIVES = 3;
+  const CANDIES = ['🍬', '🍭', '🍫', '🍬', '🍭'];
+  const BADDIES = ['🦠', '🍋'];
+
+  let W = 0, H = 0, dpr = 1, unit = 1;
+  let stars = [], bats = [], items = [], particles = [], confetti = [], popups = [];
+  let state = 'start'; // start | play | win | lose
+  let score = 0, lives = MAX_LIVES;
+  let spawnTimer = 0, elapsed = 0, invuln = 0, last = 0;
+  const player = { x: 0, y: 0, size: 0, targetX: null, vx: 0, tilt: 0, squish: 0 };
+  const keys = { left: false, right: false };
+
+  // ---------- Setup ----------
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    unit = Math.min(W, H) / 100;
+    player.size = Math.max(56, Math.min(110, unit * 14));
+    player.y = H - player.size * 0.75 - 10;
+    if (!player.x) player.x = W / 2;
+    player.x = clamp(player.x, player.size / 2, W - player.size / 2);
+    makeStars();
+  }
+  function makeStars() {
+    stars = [];
+    const n = Math.floor((W * H) / 6000);
+    for (let i = 0; i < n; i++) {
+      stars.push({ x: Math.random() * W, y: Math.random() * H * 0.85, r: Math.random() * 1.8 + 0.4,
+                   p: Math.random() * Math.PI * 2, s: Math.random() * 2 + 1 });
+    }
+    bats = [];
+    for (let i = 0; i < 3; i++) bats.push({ x: Math.random() * W, y: 60 + Math.random() * H * 0.35, s: 30 + Math.random() * 40, ph: Math.random() * 6 });
+  }
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  // ---------- Sound (tiny WebAudio beeps, no files) ----------
+  let audio = null;
+  function initAudio() {
+    try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume && audio.resume(); } catch (e) { audio = null; }
+  }
+  function tone(freq, dur, type = 'sine', vol = 0.15, slideTo = null, delay = 0) {
+    if (!audio) return;
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(audio.destination);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  const sfxCatch = () => { tone(660, 0.1, 'triangle', 0.18, 990); };
+  const sfxHurt = () => { tone(220, 0.35, 'sawtooth', 0.12, 90); };
+  function sfxWin() {
+    // "Happy Birthday" first line
+    const notes = [[392,.3],[392,.15],[440,.45],[392,.45],[523,.45],[494,.9],
+                   [392,.3],[392,.15],[440,.45],[392,.45],[587,.45],[523,.9]];
+    let d = 0;
+    for (const [f, l] of notes) { tone(f, l * 0.95, 'triangle', 0.2, null, d); d += l; }
+  }
+
+  // ---------- Game flow ----------
+  function startGame() {
+    initAudio();
+    score = 0; lives = MAX_LIVES; items = []; particles = []; confetti = []; popups = [];
+    spawnTimer = 0.4; elapsed = 0; invuln = 0;
+    player.x = W / 2; player.targetX = null;
+    updateHud();
+    startScreen.classList.add('hidden');
+    winScreen.classList.add('hidden');
+    loseScreen.classList.add('hidden');
+    hud.classList.remove('hidden');
+    state = 'play';
+  }
+  function win() {
+    state = 'win';
+    items = [];
+    winScreen.classList.remove('hidden');
+    for (let i = 0; i < 250; i++) addConfetti(true);
+    sfxWin();
+  }
+  function lose() {
+    state = 'lose';
+    document.getElementById('loseScore').textContent = `Du hast ${score} Süßigkeiten gesammelt! 🍬`;
+    setTimeout(() => loseScreen.classList.remove('hidden'), 700);
+  }
+  function updateHud() {
+    scoreVal.textContent = score;
+    livesEl.textContent = '❤️'.repeat(lives) + '🤍'.repeat(MAX_LIVES - lives);
+  }
+
+  // ---------- Spawning ----------
+  function spawn() {
+    const difficulty = Math.min(1, score / GOAL);
+    const badChance = 0.22 + difficulty * 0.13;
+    const bad = Math.random() < badChance;
+    const size = player.size * (bad ? 0.62 : 0.6);
+    items.push({
+      emoji: bad ? BADDIES[Math.floor(Math.random() * BADDIES.length)] : CANDIES[Math.floor(Math.random() * CANDIES.length)],
+      bad, size,
+      x: rand(size / 2 + 6, W - size / 2 - 6),
+      y: -size,
+      vy: (H / 4.2) * (1 + difficulty * 0.7) * rand(0.85, 1.15),
+      rot: rand(-0.5, 0.5), vr: rand(-2, 2),
+      wob: Math.random() * 6
+    });
+  }
+
+  // ---------- Effects ----------
+  function burst(x, y, colors, n = 14) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = rand(80, 260);
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 80, life: 0.7, max: 0.7,
+                       c: colors[Math.floor(Math.random() * colors.length)], r: rand(3, 7) });
+    }
+  }
+  function addConfetti(initial) {
+    const colors = ['#ff8c1a', '#ffd23f', '#ff6bd6', '#8affc1', '#7ec8ff', '#c9a7ff', '#ff4d4d'];
+    confetti.push({
+      x: Math.random() * W, y: initial ? rand(-H, 0) : -20,
+      vx: rand(-60, 60), vy: rand(90, 220),
+      w: rand(7, 14), h: rand(4, 8), rot: Math.random() * 6, vr: rand(-8, 8),
+      c: colors[Math.floor(Math.random() * colors.length)]
+    });
+  }
+
+  // ---------- Update ----------
+  function update(dt) {
+    elapsed += dt;
+    // stars twinkle / bats always move
+    for (const b of bats) { b.x += dt * 40; b.ph += dt * 8; if (b.x > W + 60) { b.x = -60; b.y = 60 + Math.random() * H * 0.35; } }
+
+    if (state === 'play') {
+      // movement
+      const speed = W * 0.9 + 300;
+      let dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+      const prevX = player.x;
+      if (dir !== 0) { player.targetX = null; player.x += dir * speed * dt; }
+      else if (player.targetX !== null) {
+        const diff = player.targetX - player.x;
+        player.x += clamp(diff * Math.min(1, dt * 14), -speed * 1.4 * dt, speed * 1.4 * dt);
+      }
+      player.x = clamp(player.x, player.size / 2, W - player.size / 2);
+      player.vx = (player.x - prevX) / Math.max(dt, 0.001);
+      player.tilt += (clamp(player.vx / 1500, -0.35, 0.35) - player.tilt) * Math.min(1, dt * 10);
+      if (invuln > 0) invuln -= dt;
+
+      // spawn
+      spawnTimer -= dt;
+      if (spawnTimer <= 0) {
+        spawn();
+        const difficulty = Math.min(1, score / GOAL);
+        spawnTimer = rand(0.65, 1.05) * (1 - difficulty * 0.35);
+      }
+
+      // items
+      const pr = player.size * 0.42;
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        it.y += it.vy * dt;
+        it.rot += it.vr * dt;
+        it.wob += dt * 3;
+        const ix = it.x + Math.sin(it.wob) * 6;
+        const dx = ix - player.x, dy = it.y - player.y;
+        const hitR = pr + it.size * 0.38;
+        if (dx * dx + dy * dy < hitR * hitR) {
+          items.splice(i, 1);
+          if (it.bad) {
+            if (invuln <= 0) {
+              lives--; invuln = 1.2; updateHud(); sfxHurt();
+              burst(ix, it.y, ['#6dff6d', '#2ecc40', '#c6ff00', '#fff35c'], 18);
+              popups.push({ x: ix, y: it.y, t: 'Igitt! 🤢', life: 1, c: '#8aff8a' });
+              if (navigator.vibrate) navigator.vibrate(120);
+              if (lives <= 0) { lose(); }
+            }
+          } else {
+            score++; updateHud(); sfxCatch();
+            player.squish = 1;
+            burst(ix, it.y, ['#ffd23f', '#ff8c1a', '#ff6bd6', '#fff'], 12);
+            popups.push({ x: ix, y: it.y, t: '+1', life: 1, c: '#ffd23f' });
+            if (score >= GOAL) { win(); }
+          }
+          continue;
+        }
+        if (it.y - it.size > H) items.splice(i, 1);
+      }
+      player.squish = Math.max(0, player.squish - dt * 4);
+    }
+
+    // particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 500 * dt; p.life -= dt;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i]; p.y -= 60 * dt; p.life -= dt;
+      if (p.life <= 0) popups.splice(i, 1);
+    }
+    // confetti
+    if (state === 'win' && confetti.length < 320) for (let k = 0; k < 4; k++) addConfetti(false);
+    for (let i = confetti.length - 1; i >= 0; i--) {
+      const c = confetti[i];
+      c.x += (c.vx + Math.sin(elapsed * 3 + c.rot) * 40) * dt; c.y += c.vy * dt; c.rot += c.vr * dt;
+      if (c.y > H + 30) confetti.splice(i, 1);
+    }
+  }
+
+  // ---------- Draw ----------
+  function drawEmoji(e, x, y, size, rot = 0, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y); ctx.rotate(rot);
+    ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(e, 0, 0);
+    ctx.restore();
+  }
+
+  function drawBackground(t) {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0b0016'); g.addColorStop(0.5, '#2b0a4a'); g.addColorStop(1, '#4a1670');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // stars
+    for (const s of stars) {
+      const a = 0.45 + 0.55 * Math.sin(t * s.s + s.p);
+      ctx.globalAlpha = Math.max(0.1, a);
+      ctx.fillStyle = '#fff8dc';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // moon
+    const mr = Math.max(35, unit * 9), mx = W - mr * 1.8, my = mr * 2.3;
+    const mg = ctx.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 2.4);
+    mg.addColorStop(0, 'rgba(255,220,130,.45)'); mg.addColorStop(1, 'rgba(255,220,130,0)');
+    ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(mx, my, mr * 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ffe9a8'; ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(220,180,90,.5)';
+    ctx.beginPath(); ctx.arc(mx - mr * 0.3, my - mr * 0.2, mr * 0.18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx + mr * 0.35, my + mr * 0.3, mr * 0.12, 0, Math.PI * 2); ctx.fill();
+
+    // bats
+    for (const b of bats) drawEmoji('🦇', b.x, b.y + Math.sin(b.ph) * 8, b.s, 0, 0.75);
+
+    // hills
+    ctx.fillStyle = '#1a0630';
+    ctx.beginPath(); ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 20) ctx.lineTo(x, H - 45 - Math.sin(x / 140) * 18 - Math.sin(x / 57) * 7);
+    ctx.lineTo(W, H); ctx.fill();
+    ctx.fillStyle = '#0e021c';
+    ctx.fillRect(0, H - 22, W, 22);
+
+    // decorative pumpkins on the ground
+    const ps = Math.max(26, unit * 5);
+    drawEmoji('🎃', ps * 0.9, H - ps * 0.85, ps, 0, 0.9);
+    drawEmoji('🕸️', W - ps * 0.9, H - ps * 0.9, ps, 0, 0.6);
+  }
+
+  function drawPlayer(t) {
+    const p = player;
+    const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
+    const bob = Math.sin(t * 5) * 3;
+    const sq = p.squish;
+    // glow
+    const gl = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 0.9);
+    gl.addColorStop(0, 'rgba(255,150,40,.45)'); gl.addColorStop(1, 'rgba(255,150,40,0)');
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.9, 0, Math.PI * 2); ctx.fill();
+
+    ctx.save();
+    ctx.translate(p.x, p.y + bob);
+    ctx.rotate(p.tilt);
+    ctx.scale(1 + sq * 0.15, 1 - sq * 0.12);
+    ctx.globalAlpha = blink ? 0.3 : 1;
+    ctx.font = `${p.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('🎃', 0, 0);
+    // little party hat 🥳
+    ctx.font = `${p.size * 0.45}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    ctx.fillText('🎉', p.size * 0.18, -p.size * 0.52);
+    ctx.restore();
+
+    // name tag
+    ctx.font = `bold ${Math.max(14, p.size * 0.22)}px "Comic Sans MS","Trebuchet MS",sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.lineWidth = 4; ctx.strokeStyle = '#2a0045';
+    ctx.strokeText('Keno', p.x, p.y + p.size * 0.42);
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillText('Keno', p.x, p.y + p.size * 0.42);
+  }
+
+  function draw(t) {
+    drawBackground(t);
+
+    for (const it of items) {
+      const ix = it.x + Math.sin(it.wob) * 6;
+      if (it.bad) {
+        // greenish warning glow
+        const gg = ctx.createRadialGradient(ix, it.y, it.size * 0.3, ix, it.y, it.size * 0.75);
+        gg.addColorStop(0, 'rgba(90,255,90,.35)'); gg.addColorStop(1, 'rgba(90,255,90,0)');
+        ctx.fillStyle = gg;
+        ctx.beginPath(); ctx.arc(ix, it.y, it.size * 0.75, 0, Math.PI * 2); ctx.fill();
+      }
+      drawEmoji(it.emoji, ix, it.y, it.size, it.rot);
+    }
+
+    if (state !== 'start') drawPlayer(t);
+
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    for (const p of popups) {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.font = `bold ${Math.max(20, unit * 5)}px "Comic Sans MS","Trebuchet MS",sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 4; ctx.strokeStyle = '#2a0045';
+      ctx.strokeText(p.t, p.x, p.y); ctx.fillStyle = p.c; ctx.fillText(p.t, p.x, p.y);
+    }
+    ctx.globalAlpha = 1;
+
+    for (const c of confetti) {
+      ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.rot);
+      ctx.fillStyle = c.c; ctx.fillRect(-c.w / 2, -c.h / 2, c.w, c.h);
+      ctx.restore();
+    }
+  }
+
+  function loop(ts) {
+    const t = ts / 1000;
+    const dt = Math.min(0.05, last ? t - last : 0.016);
+    last = t;
+    update(dt);
+    draw(t);
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Input ----------
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { keys.left = true; e.preventDefault(); }
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { keys.right = true; e.preventDefault(); }
+    if ((e.key === 'Enter' || e.key === ' ') && state !== 'play') { e.preventDefault(); startGame(); }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+  });
+  // Pointer: tap / drag anywhere → Keno moves to the finger's x position
+  function pointerMove(e) {
+    if (state !== 'play') return;
+    player.targetX = e.clientX;
+  }
+  canvas.addEventListener('pointerdown', e => { pointerMove(e); canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove', e => { if (e.buttons || e.pointerType === 'touch') pointerMove(e); });
+  canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.querySelectorAll('.restart').forEach(b => b.addEventListener('click', startGame));
+  window.addEventListener('resize', resize);
+
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
