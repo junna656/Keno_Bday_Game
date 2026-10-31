@@ -49,6 +49,7 @@
     line-height: 1.1;
   }
   h1 small { display: block; font-size: .5em; color: #c9a7ff; text-shadow: 0 3px 0 #2a0045; margin-top: 8px; }
+  .hero-c { width: clamp(80px, min(24vw, 20vh), 190px); height: clamp(110px, min(33vw, 27.5vh), 260px); animation: float 2.2s ease-in-out infinite; }
   .hero { font-size: clamp(56px, min(18vw, 15vh), 150px); animation: float 2.2s ease-in-out infinite; }
   .info {
     font-size: clamp(14px, min(3.4vw, 3vh), 24px); line-height: 1.45;
@@ -96,7 +97,7 @@
 </div>
 
 <div id="startScreen" class="screen">
-  <div class="hero">🎃</div>
+  <canvas id="heroCanvas" class="hero-c" aria-label="Keno"></canvas>
   <h1>Kenos Halloween-Bonbonjagd<small>Ein Geburtstagsspiel für Keno 🎉</small></h1>
   <div class="info">
     Fang die leckeren Süßigkeiten 🍬 🍭 🍫<br>
@@ -151,8 +152,8 @@
     canvas.width = W * dpr; canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     unit = Math.min(W, H) / 100;
-    player.size = Math.max(56, Math.min(110, unit * 14));
-    player.y = H - player.size * 0.75 - 10;
+    player.size = Math.max(60, Math.min(120, unit * 15));
+    player.y = H - player.size * 0.62 - Math.max(14, player.size * 0.2) - 10; // name tag fits below the feet
     if (!player.x) player.x = W / 2;
     player.x = clamp(player.x, player.size / 2, W - player.size / 2);
     makeStars();
@@ -395,36 +396,189 @@
     drawEmoji('🕸️', W - ps * 0.9, H - ps * 0.9, ps, 0, 0.6);
   }
 
+  // ---------- Keno (cartoon, drawn with canvas paths) ----------
+  // Local coordinates: 100 units ≈ player.size. Origin = catch point (chest / bucket).
+  function rr(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  function drawKeno(c, t, sway) {
+    const skin = '#f7d3b8', hair = '#e6c57a', hairDark = '#c39a4c', hairLight = '#f7e4a8',
+          shirt = '#b4cbe8', shirtDark = '#8ea9cf', pants = '#8e1f2c', scarf = '#c62a30', shoe = '#3b2a22';
+    c.lineJoin = 'round'; c.lineCap = 'round';
+
+    // ponytail (behind the head), swings when Keno runs
+    c.save();
+    c.translate(19, -58); c.rotate(sway);
+    c.beginPath();
+    c.moveTo(-5, -6);
+    c.bezierCurveTo(22, -12, 32, 20, 18, 48);
+    c.bezierCurveTo(13, 58, 3, 52, 8, 41);
+    c.bezierCurveTo(14, 24, 6, 9, -7, 6);
+    c.closePath();
+    c.fillStyle = hair; c.fill();
+    c.strokeStyle = hairDark; c.lineWidth = 1.6;
+    c.beginPath(); c.moveTo(2, 2); c.bezierCurveTo(14, 8, 18, 26, 13, 44); c.stroke();
+    c.strokeStyle = hairLight; c.lineWidth = 1.4;
+    c.beginPath(); c.moveTo(6, -3); c.bezierCurveTo(20, 4, 24, 22, 19, 38); c.stroke();
+    c.fillStyle = '#2b2b2b'; c.beginPath(); c.arc(-1, 0, 4, 0, Math.PI * 2); c.fill();   // hair tie
+    c.restore();
+
+    // legs + shoes
+    c.fillStyle = pants;
+    rr(c, -15, 28, 12, 24, 4); c.fill();
+    rr(c, 3, 28, 12, 24, 4); c.fill();
+    c.fillStyle = shoe;
+    c.beginPath(); c.ellipse(-10, 54, 9, 5, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(10, 54, 9, 5, 0, 0, Math.PI * 2); c.fill();
+
+    // shirt
+    c.fillStyle = shirt; rr(c, -23, -18, 46, 52, 10); c.fill();
+    c.fillStyle = shirtDark; c.globalAlpha *= 0.45; rr(c, 10, -16, 13, 50, 8); c.fill(); c.globalAlpha /= 0.45;
+    c.strokeStyle = shirtDark; c.lineWidth = 1.5;
+    c.strokeRect(-18, -6, 10, 10);                                      // pocket
+    c.beginPath(); c.moveTo(0, -12); c.lineTo(0, 34); c.stroke();         // button placket
+    c.fillStyle = '#eef4fb';
+    for (const by of [-6, 4, 14, 24]) { c.beginPath(); c.arc(2.5, by, 1.7, 0, Math.PI * 2); c.fill(); }
+    // sleeves
+    c.fillStyle = shirt;
+    c.beginPath(); c.moveTo(-21, -17); c.lineTo(-35, -2); c.lineTo(-27, 5); c.lineTo(-17, -5); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(21, -17); c.lineTo(35, -2); c.lineTo(27, 5); c.lineTo(17, -5); c.closePath(); c.fill();
+    c.strokeStyle = shirtDark; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(-35, -2); c.lineTo(-27, 5); c.moveTo(35, -2); c.lineTo(27, 5); c.stroke();
+
+    // pumpkin candy bucket
+    c.strokeStyle = '#5a3a1a'; c.lineWidth = 2.2;
+    c.beginPath(); c.arc(0, 18, 14, Math.PI * 1.05, Math.PI * 1.95); c.stroke();
+    c.fillStyle = '#ff8a1c';
+    c.beginPath(); c.ellipse(0, 23, 17, 13, 0, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#d9640a'; c.lineWidth = 1.5;
+    c.beginPath(); c.ellipse(0, 23, 7, 13, 0, 0, Math.PI * 2); c.stroke();
+    c.fillStyle = '#3a1d05';
+    c.beginPath(); c.moveTo(-9, 19); c.lineTo(-4, 19); c.lineTo(-6.5, 15); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(9, 19); c.lineTo(4, 19); c.lineTo(6.5, 15); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(-9, 25); c.quadraticCurveTo(0, 33, 9, 25); c.quadraticCurveTo(0, 29, -9, 25); c.fill();
+    c.fillStyle = '#ffd23f'; c.beginPath(); c.ellipse(0, 11, 11, 3, 0, 0, Math.PI * 2); c.fill();   // candy peeking out
+    c.fillStyle = '#ff6bd6'; c.beginPath(); c.arc(-4, 10, 3, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#7ec8ff'; c.beginPath(); c.arc(4, 10, 2.6, 0, Math.PI * 2); c.fill();
+
+    // arms holding the bucket
+    c.strokeStyle = skin; c.lineWidth = 7;
+    c.beginPath(); c.moveTo(-30, 1); c.lineTo(-15, 13); c.stroke();
+    c.beginPath(); c.moveTo(30, 1); c.lineTo(15, 13); c.stroke();
+    c.fillStyle = skin;
+    c.beginPath(); c.arc(-14, 13, 4.5, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(14, 13, 4.5, 0, Math.PI * 2); c.fill();
+
+    // neck, red neckerchief, collar
+    c.fillStyle = skin; c.fillRect(-5, -26, 10, 10);
+    c.fillStyle = scarf;
+    c.beginPath(); c.moveTo(-11, -18); c.lineTo(11, -18); c.lineTo(0, -5); c.closePath(); c.fill();
+    c.beginPath(); c.arc(0, -16, 3.5, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#cfdcef';
+    c.beginPath(); c.moveTo(-12, -20); c.lineTo(-2, -18); c.lineTo(-9, -10); c.closePath(); c.fill();
+    c.beginPath(); c.moveTo(12, -20); c.lineTo(2, -18); c.lineTo(9, -10); c.closePath(); c.fill();
+
+    // head + ears
+    c.fillStyle = skin;
+    c.beginPath(); c.ellipse(-21, -42, 4, 6, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(21, -42, 4, 6, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.arc(0, -44, 21.5, 0, Math.PI * 2); c.fill();
+
+    // hair: blond, pulled back towards the ponytail, with a few flyaway strands
+    c.fillStyle = hair;
+    c.beginPath();
+    c.moveTo(-22, -45);
+    c.bezierCurveTo(-25, -72, 20, -78, 24, -48);
+    c.bezierCurveTo(20, -52, 17, -55, 15, -58);
+    c.bezierCurveTo(6, -61, -10, -60, -19, -50);
+    c.closePath(); c.fill();
+    c.strokeStyle = hairDark; c.lineWidth = 1.3;
+    c.beginPath();
+    c.moveTo(-15, -57); c.quadraticCurveTo(0, -68, 18, -60);
+    c.moveTo(-8, -60); c.quadraticCurveTo(6, -70, 20, -55);
+    c.moveTo(-18, -52); c.quadraticCurveTo(-6, -66, 14, -64);
+    c.stroke();
+    c.strokeStyle = hairLight; c.lineWidth = 1.2;
+    c.beginPath(); c.moveTo(-12, -62); c.quadraticCurveTo(2, -71, 16, -66); c.stroke();
+    c.strokeStyle = hair; c.lineWidth = 0.9;   // flyaways
+    c.beginPath();
+    c.moveTo(-6, -66); c.quadraticCurveTo(-10, -74, -4, -77);
+    c.moveTo(4, -66); c.quadraticCurveTo(6, -75, 12, -76);
+    c.moveTo(-17, -58); c.quadraticCurveTo(-24, -62, -25, -68);
+    c.stroke();
+
+    // face
+    const blinkNow = (t % 3.7) < 0.12;
+    c.fillStyle = '#3a2a20'; c.strokeStyle = '#3a2a20';
+    if (blinkNow) {
+      c.lineWidth = 1.6;
+      c.beginPath(); c.moveTo(-11, -42); c.lineTo(-5, -42); c.moveTo(5, -42); c.lineTo(11, -42); c.stroke();
+    } else {
+      c.beginPath(); c.ellipse(-8, -42, 2.8, 3.4, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(8, -42, 2.8, 3.4, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(-7, -43.3, 1, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(9, -43.3, 1, 0, Math.PI * 2); c.fill();
+    }
+    c.strokeStyle = '#b8935a'; c.lineWidth = 1.3;     // eyebrows
+    c.beginPath(); c.moveTo(-12, -49); c.quadraticCurveTo(-8, -51, -4, -49.5);
+    c.moveTo(4, -49.5); c.quadraticCurveTo(8, -51, 12, -49); c.stroke();
+    c.strokeStyle = '#d9a383'; c.lineWidth = 1.3;     // nose
+    c.beginPath(); c.moveTo(0, -40); c.quadraticCurveTo(2, -36, -1, -35.5); c.stroke();
+    c.fillStyle = '#8a2f2f';                           // happy open smile
+    c.beginPath(); c.moveTo(-7, -32); c.quadraticCurveTo(0, -23, 7, -32); c.closePath(); c.fill();
+    c.fillStyle = '#ff9aa5';
+    c.beginPath(); c.ellipse(0, -28.3, 3.2, 1.6, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = 'rgba(255,120,120,.35)';             // rosy cheeks
+    c.beginPath(); c.ellipse(-13, -35, 4, 2.6, 0, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.ellipse(13, -35, 4, 2.6, 0, 0, Math.PI * 2); c.fill();
+  }
+
   function drawPlayer(t) {
     const p = player;
+    const k = p.size / 100;
     const blink = invuln > 0 && Math.floor(invuln * 10) % 2 === 0;
-    const bob = Math.sin(t * 5) * 3;
+    const bob = Math.abs(Math.sin(t * (Math.abs(p.vx) > 30 ? 12 : 4))) * -3 * k;
     const sq = p.squish;
     // glow
-    const gl = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 0.9);
-    gl.addColorStop(0, 'rgba(255,150,40,.45)'); gl.addColorStop(1, 'rgba(255,150,40,0)');
-    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.9, 0, Math.PI * 2); ctx.fill();
+    const gl = ctx.createRadialGradient(p.x, p.y - 10 * k, 0, p.x, p.y - 10 * k, p.size);
+    gl.addColorStop(0, 'rgba(255,150,40,.4)'); gl.addColorStop(1, 'rgba(255,150,40,0)');
+    ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(p.x, p.y - 10 * k, p.size, 0, Math.PI * 2); ctx.fill();
 
     ctx.save();
-    ctx.translate(p.x, p.y + bob);
-    ctx.rotate(p.tilt);
-    ctx.scale(1 + sq * 0.15, 1 - sq * 0.12);
+    ctx.translate(p.x, p.y + 56 * k + bob);     // pivot at the feet
+    ctx.rotate(p.tilt * 0.6);
+    ctx.scale(k * (1 + sq * 0.1), k * (1 - sq * 0.08));
+    ctx.translate(0, -56);
     ctx.globalAlpha = blink ? 0.3 : 1;
-    ctx.font = `${p.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('🎃', 0, 0);
-    // little party hat 🥳
-    ctx.font = `${p.size * 0.45}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-    ctx.fillText('🎉', p.size * 0.18, -p.size * 0.52);
+    const sway = clamp(p.vx / 1500, -0.7, 0.7) + Math.sin(t * 4) * 0.08;
+    drawKeno(ctx, t, sway);
     ctx.restore();
 
     // name tag
-    ctx.font = `bold ${Math.max(14, p.size * 0.22)}px "Comic Sans MS","Trebuchet MS",sans-serif`;
+    const fs = Math.max(14, p.size * 0.2);
+    ctx.font = `bold ${fs}px "Comic Sans MS","Trebuchet MS",sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.lineWidth = 4; ctx.strokeStyle = '#2a0045';
-    ctx.strokeText('Keno', p.x, p.y + p.size * 0.42);
+    ctx.strokeText('Keno', p.x, p.y + 62 * k);
     ctx.fillStyle = '#ffd23f';
-    ctx.fillText('Keno', p.x, p.y + p.size * 0.42);
+    ctx.fillText('Keno', p.x, p.y + 62 * k);
+  }
+
+  // Keno on the start screen
+  const heroCanvas = document.getElementById('heroCanvas');
+  const hctx = heroCanvas.getContext('2d');
+  function drawHero(t) {
+    if (startScreen.classList.contains('hidden')) return;
+    const r = heroCanvas.getBoundingClientRect();
+    const cw = Math.round(r.width * dpr), ch = Math.round(r.height * dpr);
+    if (heroCanvas.width !== cw || heroCanvas.height !== ch) { heroCanvas.width = cw; heroCanvas.height = ch; }
+    hctx.setTransform(1, 0, 0, 1, 0, 0);
+    hctx.clearRect(0, 0, cw, ch);
+    const k = ch / 145;
+    hctx.setTransform(k, 0, 0, k, cw / 2, ch * 0.54);
+    drawKeno(hctx, t, Math.sin(t * 2.5) * 0.35);
   }
 
   function draw(t) {
@@ -473,6 +627,7 @@
     last = t;
     update(dt);
     draw(t);
+    drawHero(t);
     requestAnimationFrame(loop);
   }
 
